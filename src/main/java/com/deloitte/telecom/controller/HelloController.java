@@ -3,6 +3,7 @@ import com.deloitte.telecom.dao.ICustomerDao;
 import com.deloitte.telecom.dto.SessionData;
 import com.deloitte.telecom.entities.Customer;
 import com.deloitte.telecom.exceptions.MobileNoAlreadyExistsException;
+import com.deloitte.telecom.exceptions.NotEnoughBalance;
 import com.deloitte.telecom.service.ICustomerService;
 
 import javax.security.auth.message.callback.PrivateKeyCallback.Request;
@@ -120,13 +121,20 @@ public class HelloController {
     @GetMapping("/transfercheck")
     public  RedirectView transferCheck(@RequestParam("phone")String phone,@RequestParam("balance") double balance) {
     	Customer debitCustomer = sessionData.getCustomer();
-    	debitCustomer.setBalance(debitCustomer.getBalance()-balance);
-    	Customer  creditCustomer = service.findByMobileNo(phone);
-    	creditCustomer.setBalance(creditCustomer.getBalance()+balance);
-    	debitCustomer = service.update(debitCustomer);
-    	creditCustomer = service.update(creditCustomer);
-    	sessionData.setCustomer(debitCustomer);
-        return new RedirectView("/home");
+    	if(debitCustomer.getBalance()>=balance)
+    	{
+    		debitCustomer.setBalance(debitCustomer.getBalance()-balance);
+        	Customer  creditCustomer = service.findByMobileNo(phone);
+        	creditCustomer.setBalance(creditCustomer.getBalance()+balance);
+        	debitCustomer = service.update(debitCustomer);
+        	creditCustomer = service.update(creditCustomer);
+        	sessionData.setCustomer(debitCustomer);
+            return new RedirectView("/home");
+    	}
+    	else
+    	{
+    		throw new NotEnoughBalance("Not Enough Balance");
+    	}
     }
     
     @GetMapping("/signout")
@@ -143,6 +151,11 @@ public class HelloController {
     @ExceptionHandler(MobileNoAlreadyExistsException.class)
     public ModelAndView handleIfMobileNumberAlreadyExists(MobileNoAlreadyExistsException e){
       return new ModelAndView("error","message","mobilenumber already exists");
+    }
+    
+    @ExceptionHandler(NotEnoughBalance.class)
+    public ModelAndView handleIfNotEnoughBalance(NotEnoughBalance e){
+      return new ModelAndView("error","message","Not Enough Balance");
     }
 
     @ExceptionHandler(value = Throwable.class)
